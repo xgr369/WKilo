@@ -125,25 +125,26 @@ void die(const char *s) {
     exit(1);
 }
 
-
 int editorReadKey() {
     int nread;
-    char c;
-    while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
+    char c[2];
+    while ((nread = read(STDIN_FILENO, &c, 2)) <= 0) {
         if (nread == -1 && errno != EAGAIN) die("read");
     }
 
-    if (c == '\x1b') {
-        char seq[3];
+    if (c[0] == '\x1b') {
+        char seq[2];
 
+        if (nread == 1) {
+            return '\x1b';
+        }
         if (read(STDIN_FILENO, &seq[0], 1) != 1) return '\x1b';
-        if (read(STDIN_FILENO, &seq[1], 1) != 1) return '\x1b';
 
-        if (seq[0] == '[') {
-            if (seq[1] >= '0' && seq[1] <= '9') {
-                if (read(STDIN_FILENO, &seq[2], 1) != 1) return '\x1b';
-                if (seq[2] == '~') {
-                    switch (seq[1]) {
+        if (c[1] == '[') {
+            if (seq[0] >= '0' && seq[0] <= '9') {
+                if (read(STDIN_FILENO, &seq[1], 1) != 1) return '\x1b';
+                if (seq[1] == '~') {
+                    switch (seq[0]) {
                         case '1': return HOME_KEY;
                         case '3': return DEL_KEY;
                         case '4': return END_KEY;
@@ -154,7 +155,7 @@ int editorReadKey() {
                     }
                 }
             } else {
-                switch (seq[1]) {
+                switch (seq[0]) {
                     case 'A': return ARROW_UP;
                     case 'B': return ARROW_DOWN;
                     case 'C': return ARROW_RIGHT;
@@ -163,8 +164,8 @@ int editorReadKey() {
                     case 'F': return END_KEY;
                 }
             }
-        } else if (seq[0] == 'O') {
-            switch (seq[1]) {
+        } else if (c[1] == 'O') {
+            switch (seq[0]) {
                 case 'H': return HOME_KEY;
                 case 'F': return END_KEY;
             }
@@ -172,7 +173,7 @@ int editorReadKey() {
 
         return '\x1b';
     } else {
-        return c;
+        return c[0];
     }
 }
 
