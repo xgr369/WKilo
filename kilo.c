@@ -24,6 +24,11 @@ enum editorKey {
     PAGE_DOWN
 };
 
+enum editorDialog {
+    DLG_MESSAGE = 0,
+    DLG_OPENFILE
+};
+
 enum editorHighlight {
     HL_NORMAL = 0,
     HL_COMMENT,
@@ -113,6 +118,7 @@ struct editorSyntax HLDB[] = {
 void editorSetStatusMessage(const char *fmt, ...);
 void editorRefreshScreen();
 char *editorPrompt(char *prompt, void (*callback)(char *, int));
+void editorResetDialog();
 void editorSave();
 
 /*** terminal ***/
@@ -614,6 +620,22 @@ void editorSave() {
     editorSetStatusMessage("Can't save! I/O error");
 }
 
+void editorShowOpenDialog() {
+    E.dialogrows = 4;
+    E.dialogtype = DLG_OPENFILE;
+    while (1) {
+        editorSetStatusMessage("Directory: %s", "Z:\\foo\\bar");
+        editorRefreshScreen();
+
+        int c = editorReadKey();
+        if (c == '\x1b') {
+            break;
+        }
+    }
+
+    editorResetDialog();
+}
+
 /*** find ***/
 
 void editorFindCallback(char *query, int key) {
@@ -817,14 +839,32 @@ void editorDrawStatusBar(struct abuf *ab) {
 }
 
 void editorDrawDialog(struct abuf *ab) {
-    // TODO
-    if (E.dialogrows > 0) {
+    switch (E.dialogtype) {
+        case DLG_MESSAGE: {
+            if (E.dialogrows == 0) {
+                break;
+            }
+            abAppend(ab, "\r\n", 2);
+            abAppend(ab, "\x1b[K", 3);
+            int msglen = strlen(E.statusmsg);
+            if (msglen > E.screencols) msglen = E.screencols;
+            if (msglen)
+                abAppend(ab, E.statusmsg, msglen);
+            break;
+        }
+        case DLG_OPENFILE: {
+            if (E.dialogrows == 0) {
+                break;
+            }
         abAppend(ab, "\r\n", 2);
         abAppend(ab, "\x1b[K", 3);
         int msglen = strlen(E.statusmsg);
         if (msglen > E.screencols) msglen = E.screencols;
         if (msglen)
             abAppend(ab, E.statusmsg, msglen);
+            // TODO: list files
+            break;
+        }
     }
 }
 
@@ -861,6 +901,7 @@ void editorSetStatusMessage(const char *fmt, ...) {
 
 void editorResetDialog() {
     E.dialogrows = 0;
+    E.dialogtype = DLG_MESSAGE;
 }
 
 /*** input ***/
@@ -872,6 +913,8 @@ char *editorPrompt(char *prompt, void (*callback)(char *, int)) {
     size_t buflen = 0;
     buf[0] = '\0';
 
+    E.dialogrows = 1;
+    E.dialogtype = DLG_MESSAGE;
     char *result;
     while (1) {
         editorSetStatusMessage(prompt, buf);
@@ -1042,7 +1085,7 @@ void initEditor() {
 
     if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 
-    E.dialogrows = 0;
+    editorResetDialog();
 }
 
 int main(int argc, char *argv[]) {
