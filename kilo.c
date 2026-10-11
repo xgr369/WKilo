@@ -772,7 +772,7 @@ void editorDrawRows(struct abuf *ab) {
     for (y = 0; y < contentrows; y++) {
         int filerow = y + E.rowoff;
         if (filerow >= E.numrows) {
-            if (E.numrows == 0 && y == contentrows / 3) {
+            if (E.numrows == 0 && y == contentrows / 2) {
                 char welcome[80];
                 int welcomelen = snprintf(welcome, sizeof(welcome),
                                           "Kilo editor -- version %s", KILO_VERSION);
