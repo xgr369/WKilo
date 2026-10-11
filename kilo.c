@@ -818,7 +818,8 @@ void editorDrawRows(struct abuf *ab) {
                     if (color != current_color) {
                         current_color = color;
                         char buf[16];
-                        int clen = snprintf(buf, sizeof(buf), "\x1b[%dm", color);
+                        int clen = snprintf(buf, sizeof(buf), "\x1b[%dm",
+                                            color);
                         abAppend(ab, buf, clen);
                     }
                     abAppend(ab, &c[j], 1);
