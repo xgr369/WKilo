@@ -484,6 +484,17 @@ void editorRowDelChar(erow *row, int at) {
 /*** editor operations ***/
 
 void editorInsertChar(int c) {
+    if (c == '\t') {
+        do {
+    if (E.cy == E.numrows) {
+        editorInsertRow(E.numrows, "", 0);
+    }
+            editorRowInsertChar(&E.row[E.cy], E.cx, ' ');
+            E.cx++;
+        } while (E.cx % KILO_TAB_STOP != 0);
+        return;
+    }
+
     if (E.cy == E.numrows) {
         editorInsertRow(E.numrows, "", 0);
     }
@@ -524,6 +535,12 @@ void editorDelChar() {
         editorDelRow(E.cy);
         E.cy--;
     }
+}
+
+void editorBackspace() {
+    do {
+        editorDelChar();
+    } while (E.cx % KILO_TAB_STOP != 0 && E.row[E.cy].chars[E.cx - 1] == ' ');
 }
 
 /*** file i/o ***/
@@ -1029,6 +1046,8 @@ void editorProcessKeypress() {
             break;
 
         case BACKSPACE:
+            editorBackspace();
+            break;
         case DEL_KEY:
             if (c == DEL_KEY) editorMoveCursor(ARROW_RIGHT);
             editorDelChar();
@@ -1057,8 +1076,8 @@ void editorProcessKeypress() {
             editorMoveCursor(c);
             break;
 
-        case CTRL_KEY('l'):
-        case '\x1b':
+        case '\t':
+            editorInsertChar(c);
             break;
 
         default:
