@@ -803,7 +803,8 @@ void editorDrawRows(struct abuf *ab) {
                     abAppend(ab, "\x1b[m", 3);
                     if (current_color != -1) {
                         char buf[16];
-                        int clen = snprintf(buf, sizeof(buf), "\x1b[%dm", current_color);
+                        int clen = snprintf(buf, sizeof(buf), "\x1b[%dm",
+                                            current_color);
                         abAppend(ab, buf, clen);
                     }
                 } else if (hl[j] == HL_NORMAL) {
@@ -837,7 +838,8 @@ void editorDrawStatusBar(struct abuf *ab) {
     int len = snprintf(status, sizeof(status), "%.20s - %d lines %s",
                        E.filename ? E.filename : "[No Name]", E.numrows,
                        E.dirty ? "(modified)" : "");
-    int rlen = snprintf(rstatus, sizeof(rstatus), "%d, %d", E.cy + 1, E.cx + 1);
+    int rlen = snprintf(rstatus, sizeof(rstatus), "%d, %d", E.cy + 1,
+                        E.cx + 1);
     if (len > E.screencols) len = E.screencols;
     abAppend(ab, status, len);
     while (len < E.screencols) {
@@ -1020,14 +1022,6 @@ void editorProcessKeypress() {
             editorInsertNewline();
             break;
 
-        case CTRL_KEY('q'):
-            editorQuit();
-            break;
-
-        case CTRL_KEY('s'):
-            editorSave();
-            break;
-
         case HOME_KEY:
             E.cx = 0;
             break;
@@ -1039,6 +1033,18 @@ void editorProcessKeypress() {
 
         case CTRL_KEY('f'):
             editorFind();
+            break;
+
+        case CTRL_KEY('o'):
+            editorShowOpenDialog();
+            break;
+
+        case CTRL_KEY('q'):
+            editorQuit();
+            break;
+
+        case CTRL_KEY('s'):
+            editorSave();
             break;
 
         case BACKSPACE:
