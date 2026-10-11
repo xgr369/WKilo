@@ -80,8 +80,6 @@ struct editorConfig {
     char *filename;
     char statusmsg[80];
     struct editorSyntax *syntax;
-    // NOTE: See below item is commented out
-    //struct termios orig_termios;
 };
 
 struct editorConfig E;
@@ -482,9 +480,9 @@ void editorRowDelChar(erow *row, int at) {
 void editorInsertChar(int c) {
     if (c == '\t') {
         do {
-    if (E.cy == E.numrows) {
-        editorInsertRow(E.numrows, "", 0);
-    }
+            if (E.cy == E.numrows) {
+                editorInsertRow(E.numrows, "", 0);
+            }
             editorRowInsertChar(&E.row[E.cy], E.cx, ' ');
             E.cx++;
         } while (E.cx % KILO_TAB_STOP != 0);
@@ -873,12 +871,12 @@ void editorDrawDialog(struct abuf *ab) {
             if (E.dialogrows == 0) {
                 break;
             }
-        abAppend(ab, "\r\n", 2);
-        abAppend(ab, "\x1b[K", 3);
-        int msglen = strlen(E.statusmsg);
-        if (msglen > E.screencols) msglen = E.screencols;
-        if (msglen)
-            abAppend(ab, E.statusmsg, msglen);
+            abAppend(ab, "\r\n", 2);
+            abAppend(ab, "\x1b[K", 3);
+            int msglen = strlen(E.statusmsg);
+            if (msglen > E.screencols) msglen = E.screencols;
+            if (msglen)
+                abAppend(ab, E.statusmsg, msglen);
             // TODO: list files
             break;
         }
@@ -1093,6 +1091,7 @@ void editorProcessKeypress() {
 /*** init ***/
 
 void initEditor() {
+    // TODO: reorder fields
     E.cx = 0;
     E.cy = 0;
     E.rx = 0;
