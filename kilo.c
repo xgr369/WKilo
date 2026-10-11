@@ -73,6 +73,7 @@ struct editorConfig {
     int screenrows;
     int screencols;
     int dialogrows;
+    int dialogtype;
     int numrows;
     erow *row;
     int dirty;
