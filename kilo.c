@@ -67,12 +67,12 @@ struct editorConfig {
     int coloff;
     int screenrows;
     int screencols;
+    int dialogrows;
     int numrows;
     erow *row;
     int dirty;
     char *filename;
     char statusmsg[80];
-    time_t statusmsg_time;
     struct editorSyntax *syntax;
     // NOTE: See below item is commented out
     //struct termios orig_termios;
@@ -727,10 +727,11 @@ void editorScroll() {
 
 void editorDrawRows(struct abuf *ab) {
     int y;
-    for (y = 0; y < E.screenrows; y++) {
+    int contentrows = E.screenrows - 1 - E.dialogrows;
+    for (y = 0; y < contentrows; y++) {
         int filerow = y + E.rowoff;
         if (filerow >= E.numrows) {
-            if (E.numrows == 0 && y == E.screenrows / 3) {
+            if (E.numrows == 0 && y == contentrows / 3) {
                 char welcome[80];
                 int welcomelen = snprintf(welcome, sizeof(welcome),
                                           "Kilo editor -- version %s", KILO_VERSION);
@@ -809,15 +810,18 @@ void editorDrawStatusBar(struct abuf *ab) {
         }
     }
     abAppend(ab, "\x1b[m", 3);
-    abAppend(ab, "\r\n", 2);
 }
 
-void editorDrawMessageBar(struct abuf *ab) {
-    abAppend(ab, "\x1b[K", 3);
-    int msglen = strlen(E.statusmsg);
-    if (msglen > E.screencols) msglen = E.screencols;
-    if (msglen && time(NULL) - E.statusmsg_time < 5)
-        abAppend(ab, E.statusmsg, msglen);
+void editorDrawDialog(struct abuf *ab) {
+    // TODO
+    if (E.dialogrows > 0) {
+        abAppend(ab, "\r\n", 2);
+        abAppend(ab, "\x1b[K", 3);
+        int msglen = strlen(E.statusmsg);
+        if (msglen > E.screencols) msglen = E.screencols;
+        if (msglen)
+            abAppend(ab, E.statusmsg, msglen);
+    }
 }
 
 void editorRefreshScreen() {
@@ -830,7 +834,7 @@ void editorRefreshScreen() {
 
     editorDrawRows(&ab);
     editorDrawStatusBar(&ab);
-    editorDrawMessageBar(&ab);
+    editorDrawDialog(&ab);
 
     char buf[32];
     snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1,
@@ -848,7 +852,11 @@ void editorSetStatusMessage(const char *fmt, ...) {
     va_start(ap, fmt);
     vsnprintf(E.statusmsg, sizeof(E.statusmsg), fmt, ap);
     va_end(ap);
-    E.statusmsg_time = time(NULL);
+    E.dialogrows = 1;
+}
+
+void editorResetDialog() {
+    E.dialogrows = 0;
 }
 
 /*** input ***/
@@ -860,6 +868,7 @@ char *editorPrompt(char *prompt, void (*callback)(char *, int)) {
     size_t buflen = 0;
     buf[0] = '\0';
 
+    char *result;
     while (1) {
         editorSetStatusMessage(prompt, buf);
         editorRefreshScreen();
@@ -867,22 +876,26 @@ char *editorPrompt(char *prompt, void (*callback)(char *, int)) {
         int c = editorReadKey();
         if (c == '\x1b') {
             free(buf);
-            return NULL;
+            result = NULL;
+            break;
         } else if (c == DEL_KEY || c == BACKSPACE) {
             if (buflen != 0) buf[--buflen] = '\0';
         } else if (c == '\x1b') {
             editorSetStatusMessage("");
             if (callback) callback(buf, c);
             free(buf);
-            return NULL;
+            result = NULL;
+            break;
         } else if (c == '\r') {
             editorSetStatusMessage("");
             if (callback) callback(buf, c);
             if (buflen != 0) {
-                return buf;
+                result = buf;
+                break;
             }
             free(buf);
-            return NULL;
+            result = NULL;
+            break;
         } else if (!iscntrl(c) && c < 128) {
             if (buflen == bufsize - 1) {
                 bufsize *= 2;
@@ -894,6 +907,9 @@ char *editorPrompt(char *prompt, void (*callback)(char *, int)) {
 
         if (callback) callback(buf, c);
     }
+
+    editorResetDialog();
+    return result;
 }
 
 void editorMoveCursor(int key) {
@@ -1016,11 +1032,11 @@ void initEditor() {
     E.dirty = 0;
     E.filename = NULL;
     E.statusmsg[0] = '\0';
-    E.statusmsg_time = 0;
     E.syntax = NULL;
 
     if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
-    E.screenrows -= 2; // note -- 2 = reserved height
+
+    E.dialogrows = 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -1029,9 +1045,6 @@ int main(int argc, char *argv[]) {
     if (argc >= 2) {
         editorOpen(argv[1]);
     }
-
-    editorSetStatusMessage(
-            "Help: Ctrl+S = save | Ctrl+Q = quit | Ctrl+F = find");
 
     while (1) {
         editorRefreshScreen();
