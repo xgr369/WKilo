@@ -913,7 +913,6 @@ void editorSetStatusMessage(const char *fmt, ...) {
     va_start(ap, fmt);
     vsnprintf(E.statusmsg, sizeof(E.statusmsg), fmt, ap);
     va_end(ap);
-    E.dialogrows = 1;
 }
 
 void editorResetDialog() {
