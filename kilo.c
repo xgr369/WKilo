@@ -1015,7 +1015,9 @@ void editorProcessKeypress() {
             break;
 
         default:
+            if (isprint(c)) {
             editorInsertChar(c);
+            }
             break;
     }
 }
