@@ -80,6 +80,12 @@ struct editorConfig {
     char *filename;
     char statusmsg[80];
     struct editorSyntax *syntax;
+    struct {
+        struct directory directory;
+        char *path;
+        int rowoff;
+        int cy;
+    } opendlg;// currently just for open file dialog
 };
 
 struct editorConfig E;
@@ -118,7 +124,8 @@ void editorSetStatusMessage(const char *fmt, ...);
 void editorRefreshScreen();
 char *editorPrompt(char *prompt, void (*callback)(char *, int));
 void editorResetDialog();
-void editorSave();
+int editorSave();
+int editorShowUnsavedChangesPrompt();
 
 /*** terminal ***/
 
@@ -385,6 +392,14 @@ int editorRowRxToCx(erow *row, int rx) {
     return cx;
 }
 
+void editorResetView() {
+    E.cx = 0;
+    E.cy = 0;
+    E.rx = 0;
+    E.rowoff = 0;
+    E.coloff = 0;
+}
+
 void editorUpdateRow(erow *row) {
     int tabs = 0;
     int j;
@@ -559,8 +574,21 @@ char *editorRowsToString(int *buflen) {
 }
 
 void editorOpen(char *filename) {
+    if (E.dirty) {
+        if (!editorShowUnsavedChangesPrompt()) {
+            return;
+        }
+    }
+    if (E.filename) {
     free(E.filename);
+    }
     E.filename = strdup(filename);
+    if (E.rows) {
+        free(E.rows);
+        E.rows = NULL;
+        E.numrows = 0;
+    }
+    editorResetView();
 
     editorSelectSyntaxHighlight();
 
@@ -590,30 +618,20 @@ void editorQuit() {
         int saved_coloff = E.coloff;
         int saved_rowoff = E.rowoff;
 
-        char *answer = editorPrompt("Save changes? (y/n/C) %s", NULL);
-        if (answer == NULL) {
+        if (!editorShowUnsavedChangesPrompt()) {
             return;
         }
-        if (strlen(answer) == 1) {
-            if ((answer[0] == 'y' || answer[0] == 'Y')) {
-                editorSave();
-            } else if ((answer[0] != 'n' && answer[0] != 'N')) {
-                return;
             }
-        } else {
-            return;
-        }
-    }
     write(STDOUT_FILENO, "\x1b[2J", 4);
     write(STDOUT_FILENO, "\x1b[H", 3);
     exit(0);
 }
 
-void editorSave() {
+int editorSave() {
     if (E.filename == NULL) {
         E.filename = editorPrompt("Save as: %s", NULL);
         if (E.filename == NULL) {
-            return;
+            return 0;
         }
         editorSelectSyntaxHighlight();
     }
@@ -625,16 +643,29 @@ void editorSave() {
         free(buf);
         editorSetStatusMessage("Saved to disk");
         E.dirty = 0;
-        return;
+        return 1;
     }
 
     free(buf);
     editorSetStatusMessage("Can't save! I/O error");
+    return 0;
 }
 
 void editorShowOpenDialog() {
-    E.dialogrows = 4;
+    int olddialogtype = E.dialogtype;
+    int olddialogrows = E.dialogrows;
+    E.dialogrows = E.screenrows / 2;
     E.dialogtype = DLG_OPENFILE;
+    { // open directory
+        E.opendlg.path = ".";
+        if (openDirectory(E.opendlg.path, &E.opendlg.directory)) {
+            die("openDirectory");
+        }
+        E.opendlg.rowoff = 0;
+        E.opendlg.cy = 0;
+        editorSetStatusMessage("Directory: %s", E.opendlg.path);
+    }
+    
     while (1) {
         editorSetStatusMessage("Directory: %s", "Z:\\foo\\bar");
         editorRefreshScreen();
@@ -642,10 +673,54 @@ void editorShowOpenDialog() {
         int c = editorReadKey();
         if (c == '\x1b') {
             break;
+
+        } else if (c == ARROW_UP) {
+            if (E.opendlg.cy > 0) {
+                E.opendlg.cy--;
+                if (E.opendlg.cy < E.opendlg.rowoff) {
+                    E.opendlg.rowoff--;
+                }
+                editorRefreshScreen();
+            }
+        } else if (c == ARROW_DOWN) {
+            if (E.opendlg.cy < E.opendlg.directory.entrycount - 1) {
+                E.opendlg.cy++;
+                if (E.opendlg.cy >= E.opendlg.rowoff + E.dialogrows - 1) {
+                    E.opendlg.rowoff++;
+                }
+                editorRefreshScreen();
+            }
+        } else if (c == '\r') {
+            struct dirEntry entry = E.opendlg.directory.entries[E.opendlg.cy];
+            if (entry.isDir) {
+                // open dir
+            } else {
+                editorOpen(entry.name);
+                break;
         }
     }
+    }
 
+    closeDirectory(&E.opendlg.directory);
+    E.dialogtype = olddialogtype;
+    E.dialogrows = olddialogrows;
     editorResetDialog();
+}
+
+int editorShowUnsavedChangesPrompt() {
+    char *answer = editorPrompt("Save changes? (y/n/C) %s", NULL);
+    if (answer == NULL) {
+        return 0;
+    }
+    if (strlen(answer) == 1) {
+        if ((answer[0] == 'y' || answer[0] == 'Y')) {
+            return editorSave();
+        } else if ((answer[0] != 'n' && answer[0] != 'N')) {
+            return 0;
+        }
+    } else {
+        return 0;
+    }
 }
 
 /*** find ***/
@@ -874,10 +949,27 @@ void editorDrawDialog(struct abuf *ab) {
             abAppend(ab, "\r\n", 2);
             abAppend(ab, "\x1b[K", 3);
             int msglen = strlen(E.statusmsg);
-            if (msglen > E.screencols) msglen = E.screencols;
-            if (msglen)
+            if (msglen > E.screencols) {
+                msglen = E.screencols;
+            }
+            if (msglen) {
                 abAppend(ab, E.statusmsg, msglen);
-            // TODO: list files
+            }
+
+            for (int i = 0; i < E.dialogrows - 1; i++) {
+                abAppend(ab, "\r\n", 2);
+                abAppend(ab, "\x1b[K", 3);
+                int j = i + E.opendlg.rowoff;
+                if (j < E.opendlg.directory.entrycount) {
+                    struct dirEntry entry = E.opendlg.directory.entries[j];
+                    char buf[80];
+                    snprintf(buf, sizeof(buf), "%s%s%s",
+                             entry.name,
+                             entry.isDir ? "/" : "",
+                             E.opendlg.cy == j ? " <-" : "");
+                    abAppend(ab, buf, strlen(buf));
+                }
+            }
             break;
         }
     }
@@ -927,6 +1019,8 @@ char *editorPrompt(char *prompt, void (*callback)(char *, int)) {
     size_t buflen = 0;
     buf[0] = '\0';
 
+    int olddialogtype = E.dialogtype;
+    int olddialogrows = E.dialogrows;
     E.dialogrows = 1;
     E.dialogtype = DLG_MESSAGE;
     char *result;
@@ -969,7 +1063,8 @@ char *editorPrompt(char *prompt, void (*callback)(char *, int)) {
         if (callback) callback(buf, c);
     }
 
-    editorResetDialog();
+    E.dialogtype = olddialogtype;
+    E.dialogrows = olddialogrows;
     return result;
 }
 
@@ -1091,22 +1186,14 @@ void editorProcessKeypress() {
 /*** init ***/
 
 void initEditor() {
-    // TODO: reorder fields
-    E.cx = 0;
-    E.cy = 0;
-    E.rx = 0;
-    E.rowoff = 0;
-    E.coloff = 0;
+    E.rows = NULL;
     E.numrows = 0;
-    E.row = NULL;
-    E.dirty = 0;
     E.filename = NULL;
     E.statusmsg[0] = '\0';
-    E.syntax = NULL;
+    editorResetDialog();
 
     if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 
-    editorResetDialog();
 }
 
 int main(int argc, char *argv[]) {
