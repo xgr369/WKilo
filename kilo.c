@@ -240,13 +240,6 @@ void editorUpdateSyntax(erow *row) {
         char c = row->render[i];
         unsigned char prev_hl = (i > 0) ? row->hl[i - 1] : HL_NORMAL;
 
-        if (scs_len && !in_string && !in_comment) {
-            if (!strncmp(&row->render[i], scs, scs_len)) {
-                memset(&row->hl[i], HL_COMMENT, row->rsize - i);
-                break;
-            }
-        }
-
         if (mcs_len && mce_len && !in_string) {
             if (in_comment) {
                 row->hl[i] = HL_MLCOMMENT;
@@ -265,6 +258,13 @@ void editorUpdateSyntax(erow *row) {
                 i += mcs_len;
                 in_comment = 1;
                 continue;
+            }
+        }
+
+        if (scs_len && !in_string && !in_comment) {
+            if (!strncmp(&row->render[i], scs, scs_len)) {
+                memset(&row->hl[i], HL_COMMENT, row->rsize - i);
+                break;
             }
         }
 
