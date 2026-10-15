@@ -960,23 +960,23 @@ void editorDrawStatusBar(struct abuf *ab) {
 }
 
 void editorDrawDialog(struct abuf *ab) {
+    if (E.dialogrows == 0) {
+        return;
+    }
     switch (E.dialogtype) {
         case DLG_MESSAGE: {
-            if (E.dialogrows == 0) {
-                break;
-            }
             abAppend(ab, "\r\n", 2);
             abAppend(ab, "\x1b[K", 3);
             int msglen = strlen(E.statusmsg);
-            if (msglen > E.screencols) msglen = E.screencols;
-            if (msglen)
+            if (msglen > E.screencols) {
+                msglen = E.screencols;
+            }
+            if (msglen) {
                 abAppend(ab, E.statusmsg, msglen);
+            }
             break;
         }
         case DLG_OPENFILE: {
-            if (E.dialogrows == 0) {
-                break;
-            }
             abAppend(ab, "\r\n", 2);
             abAppend(ab, "\x1b[K", 3);
             int msglen = strlen(E.statusmsg);
