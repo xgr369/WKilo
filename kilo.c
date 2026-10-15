@@ -701,7 +701,6 @@ void editorShowOpenDialog() {
     }
     
     while (1) {
-        editorSetStatusMessage("Directory: %s", "Z:\\foo\\bar");
         editorRefreshScreen();
 
         int c = editorReadKey();
