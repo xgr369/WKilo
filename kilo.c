@@ -94,11 +94,14 @@ struct editorConfig E;
 
 char *C_HL_extensions[] = { ".c", ".h", ".cpp", NULL };
 char *C_HL_keywords[] = {
-    "switch", "if", "while", "for", "break", "continue", "return", "else",
-    "struct", "union", "typedef", "static", "enum", "class", "case",
+    "do", "if", "asm", "for", "case", "else", "goto", "break", "while", "default", "return", "sizeof", "switch",
 
-    "int|", "long|", "double|", "float|", "char|", "unsigned|", "signed|",
-    "void|", NULL
+    "int|", "char|", "enum|", "long|", "NULL|", "void|", "union|", "float|", "double|", "extern|", "inline|", "signed|", "static|", "register|", "unsigned|", "volatile|", NULL
+};
+char *Lua_HL_extensions[] = {".lua", NULL};
+char *Lua_HL_keywords[] = {
+        "do", "if", "in" "or", "and", "end", "for", "not", "else", "then", "local", "until", "while", "repeat", "return", "function", 
+        "nil|", "true|", "false|", NULL
 };
 
 struct editorSyntax HLDB[] = {
@@ -107,6 +110,13 @@ struct editorSyntax HLDB[] = {
         C_HL_extensions,
         C_HL_keywords,
         "//", "/*", "*/",
+        HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS
+    },
+    {
+        "lua",
+        Lua_HL_extensions,
+        Lua_HL_keywords,
+        "--", "--[[", "--]]",
         HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS
     },
 };
