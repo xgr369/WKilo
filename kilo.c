@@ -547,9 +547,13 @@ void editorDelChar() {
 }
 
 void editorBackspace() {
+    if (E.cx == 0 || E.rows[E.cy].chars[E.cx - 1] != ' ') {
+        editorDelChar();
+    } else {
     do {
         editorDelChar();
-    } while (E.cx % KILO_TAB_STOP != 0 && E.row[E.cy].chars[E.cx - 1] == ' ');
+        } while (E.cx % KILO_TAB_STOP != 0 && E.rows[E.cy].chars[E.cx - 1] == ' ');
+    }
 }
 
 /*** file i/o ***/
