@@ -192,3 +192,99 @@ int yk__io_writefile(char *fpath, char *data, int len) {
     fclose(file);
     return (written == len) ? 0 : -2;
 }
+
+/* Path */
+
+#include <string.h>
+
+struct dirEntry {
+    char *name;
+    int isDir;
+};
+
+struct directory {
+    struct dirEntry *entries;
+    size_t entrycount;
+};
+
+int openDirectory(const char *path, struct directory *result) {
+    result->entries = NULL;
+    result->entrycount = 0;
+
+    size_t len = strlen(path);
+    char *pattern = malloc(len + 3);
+    if (!pattern)
+        return 1;
+
+    memcpy(pattern, path, len);
+
+    if (len > 0 && path[len - 1] != '\\' && path[len - 1] != '/') {
+        pattern[len++] = '\\';
+    }
+
+    pattern[len++] = '*';
+    pattern[len] = '\0';
+
+    WIN32_FIND_DATAA data;
+    HANDLE handle = FindFirstFileA(pattern, &data);
+    free(pattern);
+
+    if (handle == INVALID_HANDLE_VALUE)
+        return 1;
+
+    size_t capacity = 0;
+
+    do {
+        if (strcmp(data.cFileName, ".") == 0 ||
+            strcmp(data.cFileName, "..") == 0)
+            continue;
+
+        if (result->entrycount == capacity) {
+            size_t newCapacity = capacity ? capacity * 2 : 16;
+
+            struct dirEntry *items =
+                    realloc(result->entries, newCapacity * sizeof(*items));
+
+            if (!items)
+                goto openDirectory_fail;
+
+            result->entries = items;
+            capacity = newCapacity;
+        }
+
+        char *name = malloc(strlen(data.cFileName) + 1);
+        if (!name)
+            goto openDirectory_fail;
+
+        strcpy(name, data.cFileName);
+
+        result->entries[result->entrycount++] = (struct dirEntry) {
+                .name = name,
+                .isDir =
+                        (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0};
+
+    } while (FindNextFileA(handle, &data));
+
+    FindClose(handle);
+    return 0;
+
+openDirectory_fail:
+    FindClose(handle);
+
+    for (size_t i = 0; i < result->entrycount; i++)
+        free(result->entries[i].name);
+
+    free(result->entries);
+    result->entries= NULL;
+    result->entrycount = 0;
+    return 1;
+}
+
+void closeDirectory(struct directory *dir) {
+    for (size_t i = 0; i < dir->entrycount; i++)
+        free(dir->entries[i].name);
+
+    free(dir->entries);
+    dir->entries = NULL;
+    dir->entrycount = 0;
+}
