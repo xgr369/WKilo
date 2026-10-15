@@ -573,6 +573,26 @@ char *editorRowsToString(int *buflen) {
     return buf;
 }
 
+void editorNew() {
+    if (E.dirty) {
+        if (!editorShowUnsavedChangesPrompt()) {
+            return;
+        }
+    }
+    if (E.filename) {
+        free(E.filename);
+    }
+    E.filename = NULL;
+    if (E.rows) {
+        free(E.rows);
+        E.rows = NULL;
+        E.numrows = 0;
+    }
+    editorResetView();
+
+    editorSelectSyntaxHighlight();
+}
+
 void editorOpen(char *filename) {
     if (E.dirty) {
         if (!editorShowUnsavedChangesPrompt()) {
@@ -1126,6 +1146,10 @@ void editorProcessKeypress() {
 
         case CTRL_KEY('f'):
             editorFind();
+            break;
+
+        case CTRL_KEY('n'):
+            editorNew();
             break;
 
         case CTRL_KEY('o'):
